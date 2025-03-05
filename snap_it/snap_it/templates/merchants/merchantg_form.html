@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% load crispy_forms_tags %}
+
+{% block title %}
+  Merchant Profile - {{ user.company_name }}
+{% endblock title %}
+
+{% block content %}
+  <h1>Update Merchant Profile</h1>
+
+  <form class="form-horizontal" method="post" action="{% url 'users:merchant_update' %}">
+    {% csrf_token %}
+    {{ form|crispy }}
+    <div class="control-group">
+      <div class="controls">
+        <button type="submit" class="btn btn-primary">Update</button>
+      </div>
+    </div>
+  </form>
+{% endblock content %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+  Merchant Profile: {{ merchant.company_name }}
+{% endblock title %}
+
+{% block content %}
+<div class="container">
+  <div class="row">
+    <div class="col-sm-12">
+      <h2>Merchant Profile</h2>
+      <p><strong>Company Name:</strong> {{ merchant.company_name }}</p>
+      <p><strong>Email:</strong> {{ merchant.user.email }}</p>
+      <p><strong>Phone:</strong> {{ merchant.phone }}</p>
+      <p><strong>Address:</strong> {{ merchant.address }}</p>
+    </div>
+  </div>
+
+  {% if merchant.user == request.user %}
+    <!-- Action buttons -->
+    <div class="row">
+      <div class="col-sm-12">
+        <a class="btn btn-primary" href="{% url 'users:merchant_update' %}" role="button">Edit Merchant Info</a>
+        <a class="btn btn-secondary" href="{% url 'users:detail' merchant.user.id %}" role="button">Back to User Profile</a>
+      </div>
+    </div>
+    <!-- End Action buttons -->
+  {% endif %}
+</div>
+{% endblock content %}

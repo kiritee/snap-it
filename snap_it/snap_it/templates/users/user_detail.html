@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% load crispy_forms_tags %}
+
+{% block title %}
+  My Profile - {{ user.email }}
+{% endblock title %}
+
+{% block content %}
+<div class="container">
+    <h2>Welcome, {{ user.email }}</h2>
+
+    <!-- User Account Actions -->
+    <!--<a class="btn btn-primary" href="{% url 'users:update' %}" role="button">Edit My Info</a>-->
+    <a class="btn btn-primary" href="{% url 'account_email' %}" role="button">Add or change E-Mail</a>
+    <a class="btn btn-primary" href="{% url 'mfa_index' %}" role="button">MFA</a>
+
+    <hr>
+
+    <!-- Customer/Merchant Profile Section -->
+    {% if profile %}
+        <h2>{{ profile_type|title }} Profile</h2>
+
+        {% if profile_type == "customer" %}
+            <p><strong>First Name:</strong> {{ profile.first_name }}</p>
+            <p><strong>Last Name:</strong> {{ profile.last_name }}</p>
+            <p><strong>Phone:</strong> {{ profile.phone }}</p>
+            <p><strong>Address:</strong> {{ profile.address }}</p>
+            <a class="btn btn-primary" href="{% url 'users:customer_update' %}" role="button">Edit Customer Profile</a>
+        {% elif profile_type == "merchant" %}
+            <p><strong>Company Name:</strong> {{ profile.company_name }}</p>
+            <p><strong>Phone:</strong> {{ profile.phone }}</p>
+            <p><strong>Address:</strong> {{ profile.address }}</p>
+            <a class="btn btn-primary" href="{% url 'users:merchant_update' %}" role="button">Edit Merchant Profile</a>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock content %}
+
+<!--
+<h2>User Profile</h2>
+<p><strong>Email:</strong> {{ user.email }}</p>
+<p><strong>Role:</strong> {{ user.role }}</p>
+-->

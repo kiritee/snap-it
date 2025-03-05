@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% load crispy_forms_tags %}
+
+{% block title %}
+  Customer Profile - {{ user.first_name }} {{ user.last_name }}
+{% endblock title %}
+
+{% block content %}
+  <h1>Update Customer Profile</h1>
+
+  <form class="form-horizontal" method="post" action="{% url 'users:customer_update' %}">
+    {% csrf_token %}
+    {{ form|crispy }}
+    <div class="control-group">
+      <div class="controls">
+        <button type="submit" class="btn btn-primary">Update</button>
+      </div>
+    </div>
+  </form>
+{% endblock content %}

@@ -1,0 +1,16 @@
+services:
+  docs:
+    image: snap_it_local_docs
+    container_name: snap_it_local_docs
+    build:
+      context: .
+      dockerfile: ./compose/local/docs/Dockerfile
+    env_file:
+      - ./.envs/.local/.django
+    volumes:
+      - ./docs:/docs:z
+      - ./config:/app/config:z
+      - ./snap_it:/app/snap_it:z
+    ports:
+      - '9000:9000'
+    command: /start-docs

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load socialaccount %}
+{% block content %}
+  <h2>Create an Account</h2>
+  
+  <form method="post" action="{% url 'account_signup' %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Sign Up</button>
+  </form>
+
+  <hr>
+
+  <h3>Or sign up with:</h3>
+  <a href="{% provider_login_url 'google' %}">
+    <button class="btn btn-danger">Sign Up with Google</button>
+  </a>
+{% endblock %}

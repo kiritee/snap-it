@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+  Customer Profile: {{ customer.first_name }} {{ customer.last_name }}
+{% endblock title %}
+
+{% block content %}
+<div class="container">
+  <div class="row">
+    <div class="col-sm-12">
+      <h2>Customer Profile</h2>
+      <p><strong>Full Name:</strong> {{ customer.first_name }} {{ customer.last_name }}</p>
+      <p><strong>Email:</strong> {{ customer.user.email }}</p>
+      <p><strong>Phone:</strong> {{ customer.phone }}</p>
+      <p><strong>Address:</strong> {{ customer.address }}</p>
+    </div>
+  </div>
+
+  {% if customer.user == request.user %}
+    <!-- Action buttons -->
+    <div class="row">
+      <div class="col-sm-12">
+        <a class="btn btn-primary" href="{% url 'users:customer_update' %}" role="button">Edit Customer Info</a>
+        <a class="btn btn-secondary" href="{% url 'users:detail' customer.user.id %}" role="button">Back to User Profile</a>
+      </div>
+    </div>
+    <!-- End Action buttons -->
+  {% endif %}
+</div>
+{% endblock content %}
