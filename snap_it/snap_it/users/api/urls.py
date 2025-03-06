@@ -26,9 +26,6 @@ urlpatterns = [
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 
     # API Endpoints
-    path("user/", UserDetailAPI.as_view(), name="user_api"),
-    path("customer/", CustomerDetailAPI.as_view(), name="customer_api"),
-    path("merchant/", MerchantDetailAPI.as_view(), name="merchant_api"),
     path("customer/update/", CustomerUpdateAPI.as_view(), name="customer_update_api"),
     path("merchant/update/", MerchantUpdateAPI.as_view(), name="merchant_update_api"),
 
@@ -36,3 +33,4 @@ urlpatterns = [
 
 
 ]
+

@@ -40,6 +40,7 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, UpdateModelMixin, GenericV
 ### **🔹 Customer API ViewSet**
 class CustomerViewSet(RetrieveModelMixin, UpdateModelMixin, GenericViewSet):
     """ViewSet for retrieving and updating Customer profiles."""
+    queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
     permission_classes = [IsAuthenticated, IsCustomer]
 
@@ -50,6 +51,7 @@ class CustomerViewSet(RetrieveModelMixin, UpdateModelMixin, GenericViewSet):
 ### **🔹 Merchant API ViewSet**
 class MerchantViewSet(RetrieveModelMixin, UpdateModelMixin, GenericViewSet):
     """ViewSet for retrieving and updating Merchant profiles."""
+    queryset = Merchant.objects.all()
     serializer_class = MerchantSerializer
     permission_classes = [IsAuthenticated, IsMerchant]
 

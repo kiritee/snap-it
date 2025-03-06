@@ -32,6 +32,5 @@ urlpatterns = [
     path("merchants/<int:pk>/", merchant_detail_view, name="merchant_detail"),
     path("merchants/update/", merchant_update_view, name="merchant_update"),
 
-    # Include API Routes Separately
-    path("api/", include("users.api.urls")),  
 ]
+
