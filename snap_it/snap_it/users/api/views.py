@@ -1,11 +1,12 @@
 from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.hashers import make_password
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from rest_framework import status, generics
 from rest_framework.decorators import action
 from rest_framework.mixins import RetrieveModelMixin, UpdateModelMixin, ListModelMixin
 from rest_framework.response import Response
-from rest_framework.viewsets import GenericViewSet
+from rest_framework.viewsets import GenericViewSet, ModelViewSet
 from rest_framework.generics import RetrieveAPIView, UpdateAPIView
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
@@ -17,93 +18,199 @@ from .serializers import UserSerializer, CustomerSerializer, MerchantSerializer,
 from .permissions import IsCustomer, IsMerchant, IsAdminUser
 
 
-
-### **🔹 User API ViewSet**
-class UserViewSet(RetrieveModelMixin, ListModelMixin, UpdateModelMixin, GenericViewSet):
-    """ViewSet for managing User profiles."""
+class UserViewSet(ModelViewSet):
+    """API for managing users."""
     serializer_class = UserSerializer
-    queryset = User.objects.all()
-    lookup_field = "pk"
     permission_classes = [IsAuthenticated]
+    lookup_field = "pk"
+    queryset = User.objects.all()
+    http_method_names = ["get", "patch", "delete", "options", "put"]  # Prevent `POST` (creation)
 
     def get_queryset(self):
         """Restrict users to only see their own profile."""
         return self.queryset.filter(id=self.request.user.id)
 
-    @action(detail=False, methods=["get"])
+
+    def get_object(self):
+        """Ensure users can only retrieve their own profile."""
+        return self.request.user  # Forces user to access only their own data
+
+
+    def destroy(self, request, *args, **kwargs):
+        """Soft delete user instead of removing from database."""
+        user = self.request.user
+        user.is_active = False  #  Mark user as inactive
+        user.save()
+        return Response({"message": "Account deactivated successfully."}, status=status.HTTP_204_NO_CONTENT)
+    
+
+    @action(detail=False, methods=["get", "patch", "put", "delete","options"])
     def me(self, request):
-        """Returns the current authenticated user's profile."""
-        serializer = self.get_serializer(request.user)
+        """Retrieve, update, or deactivate the current authenticated user's profile."""
+        user = request.user  # Get the logged-in user
+
+        # PATCH: Partially update user profile
+        if request.method == "PATCH":
+            serializer = self.get_serializer(user, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # ✅ PUT: Fully update user profile (requires all fields)
+        elif request.method == "PUT":
+            serializer = self.get_serializer(user, data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # ✅ DELETE: Soft delete user (deactivate account)
+        elif request.method == "DELETE":
+            user.is_active = False  # Mark user as inactive
+            user.save()
+            return Response({"message": "User account deactivated successfully."}, status=status.HTTP_204_NO_CONTENT)
+
+        # ✅ Default GET behavior
+        serializer = self.get_serializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+
+
+
+class CustomerViewSet(ModelViewSet):
+    """ViewSet for Customer model (Read, Update, Soft Delete Only)."""
+    serializer_class = CustomerSerializer
+    permission_classes = [IsAuthenticated, IsCustomer]
+    queryset = Customer.objects.filter(user__is_active=True)  # ✅ Only return active customers
+    http_method_names = ["get", "patch", "delete", "options", "put"]   # 🚫 Prevent `POST` (creation)
+
+    def get_queryset(self):
+        """Restrict users to only see their own profile."""
+        return self.queryset.filter(user=self.request.user)
+
+
+    def get_object(self):
+        return get_object_or_404(Customer, user=self.request.user)
+
+
+    def destroy(self, request, *args, **kwargs):
+        """Soft-delete customer: Deactivate Customer and User instead of deleting."""
+        customer = self.get_object()
+        customer.is_active = False  #  Deactivate customer
+        customer.user.is_active = False  # Deactivate user
+        customer.save()
+        customer.user.save()
+        return Response({"message": "Customer deactivated successfully."}, status=status.HTTP_204_NO_CONTENT)
+    
+
+    @action(detail=False, methods=["get", "patch", "put", "delete"])
+    def me(self, request):
+        """Retrieve, update, or deactivate the current authenticated customer's profile."""
+        customer = get_object_or_404(Customer, user=request.user)
+
+        # PATCH: Partially update customer profile
+        if request.method == "PATCH":
+            serializer = self.get_serializer(customer, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # PUT: Fully update customer profile (requires all fields)
+        elif request.method == "PUT":
+            serializer = self.get_serializer(customer, data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # DELETE: Soft delete customer (deactivate account)
+        elif request.method == "DELETE":
+            customer.is_active = False  # Deactivate customer
+            customer.user.is_active = False  # Deactivate user
+            customer.save()
+            customer.user.save()
+            return Response({"message": "Customer account deactivated successfully."}, status=status.HTTP_204_NO_CONTENT)
+
+        # Default GET behavior
+        serializer = self.get_serializer(customer)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-### **🔹 Customer API ViewSet**
-class CustomerViewSet(RetrieveModelMixin, UpdateModelMixin, GenericViewSet):
-    """ViewSet for retrieving and updating Customer profiles."""
-    serializer_class = CustomerSerializer
-    permission_classes = [IsAuthenticated, IsCustomer]
-
-    def get_object(self):
-        return get_object_or_404(Customer, user=self.request.user)
 
 
-### **🔹 Merchant API ViewSet**
-class MerchantViewSet(RetrieveModelMixin, UpdateModelMixin, GenericViewSet):
-    """ViewSet for retrieving and updating Merchant profiles."""
+class MerchantViewSet(ModelViewSet):
+    """ViewSet for Merchant model (Read, Update, Soft Delete Only)."""
     serializer_class = MerchantSerializer
     permission_classes = [IsAuthenticated, IsMerchant]
+    queryset = Merchant.objects.filter(user__is_active=True)  # ✅ Only return active merchants
+    http_method_names = ["get", "patch", "delete", "options", "put"]   # 🚫 Prevent `POST` (creation)
+
+    def get_queryset(self):
+        """Restrict users to only see their own profile."""
+        return self.queryset.filter(user=self.request.user)
+
 
     def get_object(self):
         return get_object_or_404(Merchant, user=self.request.user)
 
 
-### **🔹 Get User Profile**
-class UserDetailAPI(RetrieveAPIView):
-    """API for retrieving user profile (basic details)."""
+    def destroy(self, request, *args, **kwargs):
+        """Soft-delete merchant: Deactivate Merchant and User instead of deleting."""
+        merchant = self.get_object()
+        merchant.is_active = False  #  Deactivate merchant
+        merchant.user.is_active = False  # Deactivate user
+        merchant.save()
+        merchant.user.save()
+        return Response({"message": "Merchant deactivated successfully."}, status=status.HTTP_204_NO_CONTENT)
+    
+
+    @action(detail=False, methods=["get", "patch", "put", "delete"])
+    def me(self, request):
+        """Retrieve, update, or deactivate the current authenticated merchant's profile."""
+        merchant = get_object_or_404(Merchant, user=request.user)
+
+        # PATCH: Partially update merchant profile
+        if request.method == "PATCH":
+            serializer = self.get_serializer(merchant, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # PUT: Fully update merchant profile (requires all fields)
+        elif request.method == "PUT":
+            serializer = self.get_serializer(merchant, data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # DELETE: Soft delete merchant (deactivate account)
+        elif request.method == "DELETE":
+            merchant.is_active = False  # Deactivate merchant
+            merchant.user.is_active = False  # Deactivate user
+            merchant.save()
+            merchant.user.save()
+            return Response({"message": "Merchant account deactivated successfully."}, status=status.HTTP_204_NO_CONTENT)
+
+        # Default GET behavior
+        serializer = self.get_serializer(merchant)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    
+
+
+class UserRegistrationView(generics.CreateAPIView):
+    """API endpoint for user registration."""
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
 
-
-### **🔹 Get Customer Profile**
-class CustomerDetailAPI(RetrieveAPIView):
-    """API for retrieving customer profile."""
-    serializer_class = CustomerSerializer
-    permission_classes = [IsAuthenticated, IsCustomer]
-
-    def get_object(self):
-        return get_object_or_404(Customer, user=self.request.user)
-
-
-### **🔹 Get Merchant Profile**
-class MerchantDetailAPI(RetrieveAPIView):
-    """API for retrieving merchant profile."""
-    serializer_class = MerchantSerializer
-    permission_classes = [IsAuthenticated, IsMerchant]
-
-    def get_object(self):
-        return get_object_or_404(Merchant, user=self.request.user)
-
-
-### **🔹 Update Customer Profile**
-class CustomerUpdateAPI(UpdateAPIView):
-    """API for updating customer profile."""
-    serializer_class = CustomerSerializer
-    permission_classes = [IsAuthenticated, IsCustomer]
-
-    def get_object(self):
-        return get_object_or_404(Customer, user=self.request.user)
-
-
-### **🔹 Update Merchant Profile**
-class MerchantUpdateAPI(UpdateAPIView):
-    """API for updating merchant profile."""
-    serializer_class = MerchantSerializer
-    permission_classes = [IsAuthenticated, IsMerchant]
-
-    def get_object(self):
-        return get_object_or_404(Merchant, user=self.request.user)
+    def create(self, request, *args, **kwargs):
+        """Ensure password is hashed before creating a user."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(password=make_password(serializer.validated_data["password"]))
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
     
+
+
 
 class PasswordChangeView(generics.UpdateAPIView):
     """

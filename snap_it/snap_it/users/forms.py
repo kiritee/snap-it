@@ -12,8 +12,14 @@ class UserAdminChangeForm(admin_forms.UserChangeForm):
     
     class Meta(admin_forms.UserChangeForm.Meta):  # type: ignore[name-defined]
         model = User
-        field_classes = {"email": EmailField}
         fields = ("email", "role")
+        field_classes = {"email": EmailField}
+        error_messages = {
+            "email": {"unique": _("This email has already been taken.")},
+        }
+
+
+
 
 
 class UserAdminCreationForm(admin_forms.UserCreationForm):
@@ -54,6 +60,8 @@ class UserAdminCreationForm(admin_forms.UserCreationForm):
         return user
 
 
+
+
 ### **🔹 Customer Admin Forms**
 class CustomerAdminChangeForm(forms.ModelForm):
     """Admin form for changing Customer details."""
@@ -68,6 +76,8 @@ class CustomerAdminChangeForm(forms.ModelForm):
         if self.instance.user.role != "customer":
             raise forms.ValidationError("The associated user must have role='customer'.")
         return cleaned_data
+
+
 
 
 class CustomerAdminCreationForm(forms.ModelForm):
@@ -87,6 +97,8 @@ class CustomerAdminCreationForm(forms.ModelForm):
         return customer
 
 
+
+
 ### **🔹 Merchant Admin Forms**
 class MerchantAdminChangeForm(forms.ModelForm):
     """Admin form for changing Merchant details."""
@@ -101,6 +113,8 @@ class MerchantAdminChangeForm(forms.ModelForm):
         if self.instance.user.role != "merchant":
             raise forms.ValidationError("The associated user must have role='merchant'.")
         return cleaned_data
+
+
 
 
 class MerchantAdminCreationForm(forms.ModelForm):
@@ -130,12 +144,15 @@ class CustomerForm(forms.ModelForm):
         fields = ["first_name", "last_name", "phone", "address"]
 
 
+
+
 class MerchantForm(forms.ModelForm):
     """Form for Merchants to update their profile details."""
 
     class Meta:
         model = Merchant
         fields = ["company_name", "phone", "address"]
+
 
 
 

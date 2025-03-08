@@ -13,13 +13,11 @@ from .views import (
 app_name = "users"
 
 urlpatterns = [
-
-    path("accounts/", include("allauth.urls")),
-
+    
     # Web-based User Routes
-    path("users/<int:pk>/", user_detail_view, name="detail"),
-    path("users/update/", user_update_view, name="update"),
-    path("users/redirect/", user_redirect_view, name="redirect"),
+    path("<int:pk>/", user_detail_view, name="detail"),
+    path("update/", user_update_view, name="update"),
+    path("redirect/", user_redirect_view, name="redirect"),
 
     # Dashboard Redirect
     path("dashboard/", dashboard_redirect, name="dashboard_redirect"),
@@ -32,6 +30,4 @@ urlpatterns = [
     path("merchants/<int:pk>/", merchant_detail_view, name="merchant_detail"),
     path("merchants/update/", merchant_update_view, name="merchant_update"),
 
-    # Include API Routes Separately
-    path("api/", include("users.api.urls")),  
 ]

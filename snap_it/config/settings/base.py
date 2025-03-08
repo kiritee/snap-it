@@ -116,6 +116,8 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "snap_it.users",
+    "snap_it.apps.inventory",
+    "snap_it.apps.snap",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -389,9 +391,9 @@ STATICFILES_FINDERS += ["compressor.finders.CompressorFinder"]
 # django-rest-framework - https://www.django-rest-framework.org/api-guide/settings/
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "users.api.permissions.CustomJWTAuthentication",  # Custom auth class
         "rest_framework.authentication.SessionAuthentication",
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "users.api.permissions.CustomJWTAuthentication",  # Custom auth class
+#        "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.TokenAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
@@ -409,12 +411,18 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
     "SIGNING_KEY": os.getenv("JWT_SECRET_KEY", "your-default-secret-key"),  # Store securely in ENV variables
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
-    "TOKEN_OBTAIN_SERIALIZER": "users.api.token_serializers.CustomTokenObtainPairSerializer",
+    "TOKEN_OBTAIN_PAIR_SERIALIZER": "users.api.token_serializers.CustomTokenObtainPairSerializer",
 }
 
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
 CORS_URLS_REGEX = r"^/api/.*$"
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # 👈 Web frontend (React)
+    "https://www.snap-it.com",  # 👈 Mobile app
+]
+
 
 # By Default swagger ui is available only to admin user(s). You can change permission classes to change that
 # See more configuration options at https://drf-spectacular.readthedocs.io/en/latest/settings.html#settings

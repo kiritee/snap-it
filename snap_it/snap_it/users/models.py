@@ -37,6 +37,7 @@ class User(AbstractUser):
 
     objects: ClassVar[UserManager] = UserManager()
 
+
     def save(self, *args, **kwargs):
             """
             Override save() to:
@@ -48,14 +49,15 @@ class User(AbstractUser):
                 self.is_staff = False
                 self.is_superuser = False
             
-            is_new = self._state.adding  # Check if user is newly created
-            previous_role = None  # Store previous role
-
+            # logout all sessions if password is changed
             if self.pk:  # Ensure this is an existing user
                 old_password = User.objects.get(pk=self.pk).password
                 if old_password != self.password:  # Password changed
                     self.logout_all_sessions()  # Blacklist all JWT tokens
 
+            # check for role change while updating user
+            is_new = self._state.adding  # Check if user is newly created
+            previous_role = None  # Store previous role for role change check
             if not is_new:  # User already exists, check role change
                 user_in_db = User.objects.get(pk=self.pk)
                 previous_role = user_in_db.role
@@ -82,8 +84,11 @@ class User(AbstractUser):
                     elif self.role == "merchant":
                         Merchant.objects.create(user=self)
         
+
+
     def __str__(self):
         return f"{self.email} ({self.role})"
+
 
     def get_absolute_url(self) -> str:
         """Get URL for user's detail view.
@@ -91,7 +96,8 @@ class User(AbstractUser):
             str: URL for user detail.
         """
         return reverse("users:detail", kwargs={"pk": self.id})
-    
+
+
     def logout_all_sessions(self):
         """Blacklist all refresh tokens when the password changes."""
         tokens = OutstandingToken.objects.filter(user=self)
@@ -100,6 +106,7 @@ class User(AbstractUser):
         
         # Expire all active access tokens by storing a logout timestamp
         cache.set(f"user_logout_{self.id}", "logout", timeout=None)  # No expiry
+
 
 
 class Customer(models.Model):
@@ -123,12 +130,14 @@ class Customer(models.Model):
             str: URL for customers detail.
         """
         return reverse("customers:detail", kwargs={"pk": self.user.id})
-    
+
+
     def delete(self, *args, **kwargs):
         """Ensure deleting a Customer also deletes the associated User."""
         user = self.user  # Store user reference before deleting Customer
         super().delete(*args, **kwargs)  # Delete Customer first
         user.delete()  # Then delete the associated User
+
 
 
 
@@ -144,13 +153,15 @@ class Merchant(models.Model):
 
     def __str__(self):
         return f"{self.company_name} (Merchant: {self.user.email})"
-    
+
+
     def get_absolute_url(self) -> str:
         """Get URL for merchant's detail view.
         Returns:
             str: URL for merchant detail.
         """
         return reverse("merchants:detail", kwargs={"pk": self.user.id})
+
     
     def delete(self, *args, **kwargs):
         """Ensure deleting a Merchant also deletes the associated User."""
