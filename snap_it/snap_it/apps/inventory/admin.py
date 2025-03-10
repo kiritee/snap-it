@@ -10,10 +10,11 @@ from django.urls import path
 from django.http import HttpResponseRedirect
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
-from .models import Inventory, Item, Listing
+from .models import Inventory, Item, Listing, LiveInventory
 from django.template.response import TemplateResponse
 from datetime import datetime
 from snap_it.users.models import Merchant
+from django.db.models import Q
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +46,7 @@ class ListingInline(admin.TabularInline):
         if obj.pk:  # Only show if the Listing exists
             return format_html('<a href="/admin/inventory/listing/{}/change/">{}</a>', obj.pk, obj)
         return "-"
-#    listing.short_description = "Listing"
 
-    # def item_name(self, obj):
-    #     """Display the related item's name."""
-    #     return obj.item.item_name if obj.item else "-"
-    # item_name.short_description = "Item Name"
 
 
 @admin.register(Inventory)
@@ -340,9 +336,9 @@ class ItemAdmin(admin.ModelAdmin):
 
 @admin.register(Listing)
 class ListingAdmin(admin.ModelAdmin):
-    list_display = ("item", "inventory", "price", "is_active", "created_at", "updated_at")
+    list_display = ("item", "inventory", "price", "is_live", "is_active", "created_at", "updated_at")
     search_fields = ("item__item_name", "inventory__inventory_name")
-    list_filter = ("is_active", "created_at")
+    list_filter = ("inventory__merchant", "is_active", "created_at")
 
 
     # def get_actions(self, request):
@@ -407,9 +403,17 @@ class ListingAdmin(admin.ModelAdmin):
         
         return HttpResponseRedirect(request.META.get("HTTP_REFERER", ".."))
     
+
     def get_queryset(self, request):
-        """Prefetch related fields for better performance."""
-        return super().get_queryset(request).select_related("item", "inventory")
+        queryset = super().get_queryset(request).select_related("item", "inventory")
+        return queryset  # Default to live listings only
+
+    def merchant_name(self, obj):
+        """Show Merchant name in Admin."""
+        return obj.inventory.merchant.user.email if obj.inventory.merchant else "N/A"
+
+    merchant_name.short_description = "Merchant"
+
     
     def item(self, obj):
         return obj.item.item_name
@@ -420,7 +424,19 @@ class ListingAdmin(admin.ModelAdmin):
     item.short_description = "Item"
     inventory.short_description = "Inventory"
     
-#admin.site.register(Listing, ListingAdmin)
+
+
+@admin.register(LiveInventory)
+class LiveInventoryAdmin(admin.ModelAdmin):
+    list_display = ("merchant", "get_live_listings")
+    search_fields = ("merchant__user__email",)
+
+    def get_live_listings(self, obj):
+        return ", ".join([listing.item.item_name for listing in obj.listings.all()])
+
+    get_live_listings.short_description = "Live Listings"
+
+
 
 
 

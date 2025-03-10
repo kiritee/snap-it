@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.conf import settings
 import uuid
 from snap_it.users.models import User
@@ -7,6 +7,7 @@ from django.urls import reverse
 import qrcode
 from io import BytesIO
 from django.core.files.base import ContentFile
+from django.db.models import Q, F, Exists, OuterRef
 
 
 
@@ -65,11 +66,22 @@ class Listing(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     promo_start_date = models.DateField(null=True, blank=True)
     promo_end_date = models.DateField(null=True, blank=True)
+    is_live = models.BooleanField(default=True)  # New field
     is_active = models.BooleanField(default=True)
     snap_url = models.URLField(max_length=500, unique=True, blank=True, null=True)  # Store the snap URL
     snap_qr_code = models.ImageField(upload_to="qr_codes/", blank=True, null=True)  # QR Code Image
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['inventory', 'item'],
+                condition=Q(is_live=True),
+                name="unique_live_listing_per_item_per_merchant"
+            )
+        ]
+
 
     def generate_snap_url(self):
         """Generate a unique URL for this listing's snap feature"""
@@ -84,8 +96,26 @@ class Listing(models.Model):
         buffer.close()
 
     def save(self, *args, **kwargs):
-        """Override save method to auto-generate snap_url if not set"""
+        """
+        Override save() to enforce only one live listing per item per merchant.
+        If a new listing is created with is_live=True, deactivate the old one.
+        """
+        if self.is_live:
+            # Find old live listing for the same merchant and item
+            old_listing = Listing.objects.filter(
+                inventory__merchant=self.inventory.merchant,
+                item=self.item,
+                is_live=True
+            ).exclude(pk=self.pk).first()
+
+            if old_listing:
+                old_listing.is_live = False
+                old_listing.save(update_fields=["is_live"])
+
         super().save(*args, **kwargs)  # Ensure the object is saved first
+        update_live_inventory(self)
+        
+        """Override save method to auto-generate snap_url if not set"""
         update_fields = []
 
         if not self.snap_url:
@@ -102,3 +132,21 @@ class Listing(models.Model):
 
     def __str__(self):
         return f"Listing {self.listing_id} - {self.item}"
+    
+
+
+
+class LiveInventory(models.Model):
+    """Stores live listings per merchant for fast retrieval."""
+    merchant = models.OneToOneField(User, primary_key=True, on_delete=models.CASCADE, related_name="live_inventory")
+    listings = models.ManyToManyField("Listing", related_name="live_inventory")
+
+    def __str__(self):
+        return f"Live Inventory for {self.merchant.user.email}"
+    
+
+    def update_live_inventory(self):
+        """Syncs the live inventory with latest live listings."""
+        self.listings.set(Listing.objects.filter(
+            inventory__merchant=self.merchant, is_live=True
+        ))

@@ -59,7 +59,7 @@ class SnapViewSet(viewsets.ModelViewSet):
         snap = get_object_or_404(Snap, pk=pk, user=request.user)
         listing = snap.listing
         item = listing.item
-        all_listings = Listing.objects.filter(item=item, is_active=True)
+        all_listings = Listing.objects.filter(item=item, is_active=True, is_live=True)
 
         return Response({
             "item": ItemSerializer(item).data,

@@ -14,6 +14,7 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from .forms import UserAdminChangeForm, UserAdminCreationForm, CustomerAdminChangeForm, CustomerAdminCreationForm, MerchantAdminChangeForm, MerchantAdminCreationForm
 from .models import User, Customer, Merchant
+from snap_it.apps.inventory.models import Inventory, Listing, Item
 
 
 logger = logging.getLogger(__name__)
@@ -213,6 +214,8 @@ class CustomerAdmin(admin.ModelAdmin):
 
     
 #admin.site.register(Customer, CustomerAdmin)
+
+
 
 
 
