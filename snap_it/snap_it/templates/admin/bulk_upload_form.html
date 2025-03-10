@@ -1,0 +1,15 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="module">
+    <h2>Bulk Upload Items (CSV)</h2>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <label for="csv_file">Upload CSV file:</label>
+        <input type="file" name="csv_file" accept=".csv" required>
+        <button type="submit">Upload</button>
+    </form>
+    <br>
+    <a href="../">Back to Item List</a>
+</div>
+{% endblock %}

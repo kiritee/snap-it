@@ -147,7 +147,7 @@ class Merchant(models.Model):
     Stores additional fields specific to merchants.
     """
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
-    company_name = models.CharField(_("Company Name"), max_length=255)
+    company_name = models.CharField(_("Company Name"), max_length=255, unique=True)
     phone = models.CharField(_("Phone Number"), max_length=15, blank=True, null=True)
     address = models.TextField(_("Registered Address"), blank=True, null=True)
 

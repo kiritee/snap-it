@@ -1,14 +1,22 @@
+import csv
+import io
+import logging
 from allauth.account.decorators import secure_admin_login
 from django.conf import settings
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.shortcuts import redirect
 from django.contrib.auth import admin as auth_admin
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 from django.http import HttpResponseRedirect
-from django.urls import reverse
-
+from django.urls import reverse, path
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from .forms import UserAdminChangeForm, UserAdminCreationForm, CustomerAdminChangeForm, CustomerAdminCreationForm, MerchantAdminChangeForm, MerchantAdminCreationForm
 from .models import User, Customer, Merchant
+
+
+logger = logging.getLogger(__name__)
 
 if settings.DJANGO_ADMIN_FORCE_ALLAUTH:
     # Force the `admin` sign-in process to go through django-allauth
@@ -114,6 +122,7 @@ class CustomerAdmin(admin.ModelAdmin):
     search_fields = ("user__email", "first_name", "last_name")
     ordering = ["user__email"]
     fields = ("user", "first_name", "last_name", "phone", "address")
+    actions = ["bulk_upload_customers"]
 
     def save_model(self, request, obj, form, change):
         """
@@ -122,6 +131,90 @@ class CustomerAdmin(admin.ModelAdmin):
         if obj.user.role != "customer":
             raise ValueError("Only users with role='customer' can be assigned as a Customer.")
         super().save_model(request, obj, form, change)
+
+    def get_urls(self):
+        """Add custom admin URL for bulk uploads."""
+        urls = super().get_urls()
+        custom_urls = [
+            path("bulk-upload/", self.admin_site.admin_view(self.bulk_upload_view), name="bulk-upload-customers"),
+        ]
+        return custom_urls + urls
+
+    def bulk_upload_view(self, request):
+        """Admin panel bulk upload view for customers."""
+        if request.method == "POST" and request.FILES.get("csv_file"):
+            file = request.FILES["csv_file"]
+            csv_data = file.read().decode("utf-8")
+            csv_reader = csv.DictReader(io.StringIO(csv_data))
+
+            created, updated, errors = 0, 0, []
+
+            with transaction.atomic():
+                for row in csv_reader:
+                    email = row.get("email", "").strip()
+                    password = row.get("password", "").strip()
+                    first_name = row.get("first_name", "").strip()
+                    last_name = row.get("last_name", "").strip()
+                    phone = row.get("phone", "").strip()
+                    address = row.get("address", "").strip()
+
+                    if not email or not password:
+                        errors.append(f"Missing email or password: {row}")
+                        continue
+
+                    # Validate email format
+                    try:
+                        validate_email(email)
+                    except ValidationError:
+                        errors.append(f"Invalid email: {email}")
+                        continue
+
+                    # Check if user already exists
+                    user, created_user = User.objects.get_or_create(email=email, defaults={"role": "customer"})
+
+                    if created_user:
+                        # Bypass password validation and create user
+                        user.set_password(password)
+                        user.save()
+                        created += 1
+                    else:
+                        updated += 1
+
+                    # **Find and update the existing Customer object**
+                    try:
+                        customer = Customer.objects.get(user=user)
+                        customer.first_name = first_name
+                        customer.last_name = last_name
+                        customer.phone = phone
+                        customer.address = address
+                        customer.save()
+                    except Customer.DoesNotExist:
+                        errors.append(f"Customer object missing for user: {email}")
+
+            messages.success(request, f"Created: {created}, Updated: {updated}, Errors: {len(errors)}")
+            if errors:
+                logger.warning(f"Errors during bulk upload: {errors}")
+
+            return redirect("..")
+
+        return HttpResponseRedirect(request.META.get("HTTP_REFERER", ".."))
+    
+    def bulk_upload_customers(self, request, queryset):
+        """Admin action to bulk upload customers via CSV."""
+        return HttpResponseRedirect(reverse("admin:bulk-upload-customers"))
+    bulk_upload_customers.short_description = "Bulk Upload Customers"   
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if "delete_selected" in actions:
+            del actions["delete_selected"]
+        return actions
+    
+
+    
+#admin.site.register(Customer, CustomerAdmin)
+
+
 
 
 @admin.register(Merchant)
@@ -136,6 +229,7 @@ class MerchantAdmin(admin.ModelAdmin):
     search_fields = ("company_name", "user__email")
     ordering = ["company_name"]
     fields = ("user", "company_name", "address")
+    actions = ["bulk_upload_merchants"]
 
     def save_model(self, request, obj, form, change):
         """
@@ -144,3 +238,83 @@ class MerchantAdmin(admin.ModelAdmin):
         if obj.user.role != "merchant":
             raise ValueError("Only users with role='merchant' can be assigned as a Merchant.")
         super().save_model(request, obj, form, change)
+
+
+    def get_urls(self):
+        """Add custom admin URL for bulk uploads."""
+        urls = super().get_urls()
+        custom_urls = [
+            path("bulk-upload/", self.admin_site.admin_view(self.bulk_upload_view), name="bulk-upload-merchants"),
+        ]
+        return custom_urls + urls
+
+    def bulk_upload_view(self, request):
+        """Admin panel bulk upload view for merchants."""
+        if request.method == "POST" and request.FILES.get("csv_file"):
+            file = request.FILES["csv_file"]
+            csv_data = file.read().decode("utf-8")
+            csv_reader = csv.DictReader(io.StringIO(csv_data))
+
+            created, updated, errors = 0, 0, []
+
+            with transaction.atomic():
+                for row in csv_reader:
+                    email = row.get("email", "").strip()
+                    password = row.get("password", "").strip()
+                    company_name = row.get("company_name", "").strip()
+                    last_name = row.get("last_name", "").strip()
+                    phone = row.get("phone", "").strip()
+                    address = row.get("address", "").strip()
+
+                    if not email or not password:
+                        errors.append(f"Missing email or password: {row}")
+                        continue
+
+                    # Validate email format
+                    try:
+                        validate_email(email)
+                    except ValidationError:
+                        errors.append(f"Invalid email: {email}")
+                        continue
+
+                    # Check if user already exists
+                    user, created_user = User.objects.get_or_create(email=email, defaults={"role": "merchant"})
+
+                    if created_user:
+                        # Bypass password validation and create user
+                        user.set_password(password)
+                        user.save()
+                        created += 1
+                    else:
+                        updated += 1
+
+                    # **Find and update the existing Customer object**
+                    try:
+                        merchant = Merchant.objects.get(user=user)
+                        merchant.company_name = company_name
+                        merchant.last_name = last_name
+                        merchant.phone = phone
+                        merchant.address = address
+                        merchant.save()
+                    except Merchant.DoesNotExist:
+                        errors.append(f"Merchant object missing for user: {email}")
+
+            messages.success(request, f"Created: {created}, Updated: {updated}, Errors: {len(errors)}")
+            if errors:
+                logger.warning(f"Errors during bulk upload: {errors}")
+
+            return redirect("..")
+
+        return HttpResponseRedirect(request.META.get("HTTP_REFERER", ".."))
+    
+    def bulk_upload_merchants(self, request, queryset):
+        """Admin action to bulk upload merchants via CSV."""
+        return HttpResponseRedirect(reverse("admin:bulk-upload-merchants"))
+    bulk_upload_merchants.short_description = "Bulk Upload Merchants"   
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if "delete_selected" in actions:
+            del actions["delete_selected"]
+        return actions
+    

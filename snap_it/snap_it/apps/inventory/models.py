@@ -86,12 +86,19 @@ class Listing(models.Model):
     def save(self, *args, **kwargs):
         """Override save method to auto-generate snap_url if not set"""
         super().save(*args, **kwargs)  # Ensure the object is saved first
+        update_fields = []
+
         if not self.snap_url:
             self.snap_url = self.generate_snap_url()
+            update_fields.append("snap_url")
+
         if not self.snap_qr_code:
             self.generate_qr_code()
+            update_fields.append("snap_qr_code")
 
-        super().save(*args, **kwargs)
+        # Save only the modified fields to prevent triggering auto-increment
+        if update_fields:
+            super().save(update_fields=update_fields)
 
     def __str__(self):
         return f"Listing {self.listing_id} - {self.item}"
